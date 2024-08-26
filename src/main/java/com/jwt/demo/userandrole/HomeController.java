@@ -22,6 +22,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jwt.demo.jwt.AuthTokenCache;
 import com.jwt.demo.jwt.jwtUtil;
 import com.nimbusds.jwt.JWT;
 import com.nimbusds.jwt.JWTClaimsSet;
@@ -34,97 +35,105 @@ import io.jsonwebtoken.Claims;
 public class HomeController {
 	@Autowired
 	private HomeReposistory homeReposistory;
-	
-//	@Autowired
-//	private AuthenticationManager authenticationManager;
-	
-//	@Autowired
-//	private PasswordEncoder passwordEncoder;
-	
+
+
+	@Autowired
+	private AuthTokenCache authTokenCache;
+
 	@Autowired
 	private jwtUtil jwtUtil;
-		
 	
-	
+	@Autowired
+	private HomeService homeService;
+
 	@PostMapping("/save")
-	public ResponseEntity<?> saveData(@RequestBody HomeEntity entity){
-		
+	public ResponseEntity<?> saveData(@RequestBody HomeEntity entity) {
+
 		HomeEntity save = homeReposistory.save(entity);
-		
+
 		return ResponseEntity.ok(save);
-		
+
 	}
-	
+
 	@PostMapping("/login")
-	public ResponseEntity<?> authicateUser(@RequestBody LoginDto dto) throws ParseException, JsonMappingException, JsonProcessingException{
-		  try {
-	        	System.out.println("Check Point 1:::::");
-//	        	User user1=userRepository.findByEmail(loginDto.getEmail());
-//	        	System.out.println(user1.toString());
-//	            Authentication authentication =
-//	                    authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(loginDto.getEmail(),loginDto.getPassword()));
-//	            System.out.println("Check Point 2::::: " +authentication);
-//	            String email = authentication.getName();
-//	            User user = new User(email,"");
-//	            String token = jwtUtil.createToken(user);
-//	            LoginRes loginRes = new LoginRes(loginDto.getEmail(),token);
-//
-//	            return ResponseEntity.ok(loginRes);
-	        	
-	        	
-                HomeEntity user = new HomeEntity(dto.getEmailId());	       
-	        	
-	        	 String token = jwtUtil.createToken(user);
-	        	 
-	        	 JWT jwt = JWTParser.parse(token);
-	 			System.out.println("Header: " + jwt.getHeader().toJSONObject());
-	 			System.out.println("Payload: " + jwt.getJWTClaimsSet().toJSONObject());
-	 			ObjectMapper objectMapper = new ObjectMapper();
-	 			JsonNode idTokenJson = objectMapper.readTree(jwt.getJWTClaimsSet().toString());
-	 			String email = idTokenJson.get("sub").asText();
-	 			System.out.println("email: " + email);
-	 			HomeEntity user1 = homeReposistory.findByEmailId(email);
-	        	 
-	        	 
-	        	 
-	        	
-//	        	String encodedLoginPassword = passwordEncoder.encode(loginUserPassword);
-//	        	System.out.println("Check Point 5:::: "+encodedLoginPassword);
-	        	
-	        	if (user1!=null) {
-	        		System.out.println("Check Point 6:::: ");
-	        		 
-			            LoginRes loginRes = new LoginRes(dto.getEmailId(),token);
+	public ResponseEntity<?> authicateUser(@RequestBody LoginDto dto)
+			throws ParseException, JsonMappingException, JsonProcessingException {
+		try {
+			System.out.println("Check Point 1:::::");
 
-			            return ResponseEntity.ok(loginRes);
-	        	}
-	        	else {
-	        		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User is Unauthorized");
 
-				}
-		          
-	        }catch (BadCredentialsException e){
-	             e.printStackTrace();
-	        }
-		  return null;
-	}
-	
-	@GetMapping("/token/{token}")
-	public ResponseEntity<?> checkTokenExp(@PathVariable ("token") String token) throws AuthenticationException, ParseException {
+			HomeEntity user = new HomeEntity(dto.getEmailId());
+
+			String token = jwtUtil.createToken(user);
 		
-		Claims decodetoken = jwtUtil.decodetoken(token);
-		if(decodetoken!=null) {
-		Boolean tokenExpired = jwtUtil.validateClaims(decodetoken);
-		return ResponseEntity.ok(tokenExpired);
+
+			JWT jwt = JWTParser.parse(token);
+			System.out.println("Header: " + jwt.getHeader().toJSONObject());
+			System.out.println("Payload: " + jwt.getJWTClaimsSet().toJSONObject());
+			ObjectMapper objectMapper = new ObjectMapper();
+			JsonNode idTokenJson = objectMapper.readTree(jwt.getJWTClaimsSet().toString());
+			String email = idTokenJson.get("sub").asText();
+			System.out.println("email: " + email);
+			HomeEntity user1 = homeReposistory.findByEmailId(email);
+			authTokenCache.setToken(user1.getUserId(), token);
+
+
+
+			if (user1 != null) {
+				System.out.println("Check Point 6:::: ");
+
+				LoginRes loginRes = new LoginRes(dto.getEmailId(), token);
+
+				return ResponseEntity.ok(loginRes);
+			} 
+
+		} catch (BadCredentialsException e) {
+			e.printStackTrace();
 		}
-		else {
+		return null;
+	}
+
+	@GetMapping("/token/{token}")
+	public ResponseEntity<?> checkTokenExp(@PathVariable("token") String token)
+			throws AuthenticationException, ParseException {
+
+		Claims decodetoken = jwtUtil.decodetoken(token);
+		if (decodetoken != null) {
+			Boolean tokenExpired = jwtUtil.validateClaims(decodetoken);
+			return ResponseEntity.ok(tokenExpired);
+		} else {
 			System.out.println("Inside else");
 			return ResponseEntity.ok(false);
 		}
-		
+
 	}
+
 	
-	
-	
+	@GetMapping("/getUserData/{userId}")
+	public ResponseEntity<?> getUserData(@PathVariable  Long userId) {
+
+		try {
+
+			String token = homeService.authenticateUser(userId);
+			System.out.println("Check token:: "+token);
+			JWT jwt = JWTParser.parse(token);
+			ObjectMapper objectMapper = new ObjectMapper();
+			JsonNode idTokenJson = objectMapper.readTree(jwt.getJWTClaimsSet().toString());
+			String email = idTokenJson.get("sub").asText();
+			HomeEntity user1 = homeReposistory.findByEmailId(email);
+			if(userId==user1.getUserId()) {
+				return ResponseEntity.ok(user1);
+			}else {
+				return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+						
+			
+			}
+			
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
 
 }

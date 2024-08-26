@@ -25,7 +25,7 @@ public class jwtUtil {
 	private final HomeReposistory homeReposistory;
 
 	private final String secret_key = "Deqzfgkivkalsuetyf=nwxxn12ndiendi34mnvnbxvsgeirolfjfuywbqhbwuxnnfkfpogmmvbfmvormvkrmvjvnmtovmtmgvmgitmvtimggitjgitmfjswe432=0";
-	private long accessTokenValidity = 25 ;
+	private long accessTokenValidity = 60 ;
 	private JwtParser jwtParser;
 	private final String TOKEN_HEADER = "Authorization";
 	private final String TOKEN_PREFIX = "Bearer";
